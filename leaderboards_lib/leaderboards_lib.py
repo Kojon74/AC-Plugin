@@ -22,12 +22,20 @@ class Leaderboards:
         self.track = TRACK_NAMES[ac.getTrackName(0)]
         self.lap = lap.Lap(self.track)
         self.lap_count = 0
-        self.cur_username, self.cur_user_id = self.get_current_user()
+        self.cur_username, self.cur_user_id = self.init_server()
         self.best_lap_offset, self.best_lap_elapsed, self.best_lap_time = self.get_best_lap()
         self.ui = leaderboards_ui.LeaderboardsUI(app_window, self.cur_username, self.best_lap_time)
 
-    def get_current_user(self):
-        with urllib.request.urlopen('http://{}:8000/current-user'.format(IP_ADDRESS)) as response:
+    '''
+    Serves multiple purposes:
+    1. Check if the server is up and running without errors
+    2. Get's the current user from the server
+    3. Updates the database to reflect current track
+    '''
+    def init_server(self):
+        data = urllib.parse.urlencode({"track": self.track}).encode("ascii")
+        req = urllib.request.Request(url='http://{}:8000/app-boot/'.format(IP_ADDRESS), data=data)
+        with urllib.request.urlopen(req) as response:
             response = json.loads(response.read().decode(response.info().get_param('charset') or 'utf-8'))
             cur_username, cur_user_id = response['username'], response['userID']
             best_lap_path = 'best_laps\{}\{}'.format(cur_user_id, self.track)
@@ -90,6 +98,9 @@ class Leaderboards:
         self.ui.update_lap_time(ac.getCarState(0, acsys.CS.LapTime))
 
     def acShutdown(self):
+        req = urllib.request.Request(url='http://{}:8000/app-shutdown/'.format(IP_ADDRESS))
+        with urllib.request.urlopen(req) as response:
+            response = json.loads(response.read().decode(response.info().get_param('charset') or 'utf-8'))
         ac.console("Shutdown")
         ac.log("Shutdown")
 
