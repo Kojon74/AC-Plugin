@@ -1,9 +1,13 @@
 import urllib.request
-import pickle
 import time
 import math
+import csv
+
+import ac
 
 IP_ADDRESS = "10.0.0.153"
+
+FIELDS = ["distance_offset", "time_elapsed"]
 
 class Lap:
     def __init__(self, track):
@@ -11,13 +15,10 @@ class Lap:
         self.invalidated = False
         self.lap_time = None
         self.sector_times = None
-
-        self.offset = []
-        self.elapsed = []
+        self.distance_time = []
 
     def add(self, offset, elapsed):
-        self.offset.append(offset)
-        self.elapsed.append(elapsed)
+        self.distance_time.append([float(offset), int(elapsed)])
 
     def upload(self, cur_user_id, is_best_lap):
         timestamp = math.floor(time.time() * 1000)
@@ -25,8 +26,7 @@ class Lap:
         req = urllib.request.Request(url='http://{}:8000/upload-lap/'.format(IP_ADDRESS), data=data)
         with urllib.request.urlopen(req) as response:
             print(response.read())
-        if is_best_lap:
-            with open("best_laps\{}\{}\{}_offset".format(cur_user_id, self.track, timestamp), "wb") as fp:
-                pickle.dump(self.offset, fp)
-            with open("best_laps\{}\{}\{}_elapsed".format(cur_user_id, self.track, timestamp), "wb") as fp:
-                pickle.dump(self.elapsed, fp)
+        with open("best_laps\{}\{}\{}.csv".format(cur_user_id, self.track, timestamp), 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(FIELDS)
+            writer.writerows(self.distance_time)

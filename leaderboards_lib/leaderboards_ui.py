@@ -1,16 +1,18 @@
 import math
 import ac
 
+X_ROW_0 = 50
 X_ROW_1 = 100
 X_ROW_2 = 150
 X_ROW_3 = 200
+Y_COL_1 = 0
 Y_COL_2 = 200
 Y_COL_3 = 400
 
 class LeaderboardsUI:
     def __init__(self, app_window, current_user, best_lap_time):
         ac.setSize(app_window, 900, 300)
-        current_user_label = ac.addLabel(app_window, "{}".format(current_user))
+        current_user_label = ac.addLabel(app_window, "{0}".format(current_user))
         rival_lap_label = ac.addLabel(app_window, "Rival Lap")
         best_lap_label = ac.addLabel(app_window, "Best Lap")
         self.best_lap_time = ac.addLabel(app_window, self.ms_to_time_str(best_lap_time))
@@ -18,6 +20,7 @@ class LeaderboardsUI:
         cur_lap_label = ac.addLabel(app_window, "Current Lap")
         self.cur_lap_time = ac.addLabel(app_window, "0:00.000")
         self.invalidated_label = ac.addLabel(app_window, "")
+        self.lap_counter = ac.addLabel(app_window, "0 laps")
 
         ac.setFontColor(self.best_lap_delta, 1, 0, 0, 1)
 
@@ -29,15 +32,20 @@ class LeaderboardsUI:
         ac.setFontSize(self.best_lap_delta, 30)
         ac.setFontSize(cur_lap_label, 30)
         ac.setFontSize(self.invalidated_label, 30)
+        ac.setFontSize(self.lap_counter, 30)
 
-        ac.setPosition(cur_lap_label, 0, X_ROW_1)
+        ac.setPosition(current_user_label, Y_COL_1, X_ROW_0)
+        ac.setPosition(self.lap_counter, Y_COL_2, X_ROW_0)
+        ac.setPosition(cur_lap_label, Y_COL_1, X_ROW_1)
         ac.setPosition(self.cur_lap_time, Y_COL_2, X_ROW_1)
         ac.setPosition(self.invalidated_label, Y_COL_3, X_ROW_1)
-        ac.setPosition(current_user_label, 0, 50)
-        ac.setPosition(rival_lap_label, 0, X_ROW_3)
-        ac.setPosition(best_lap_label, 0, X_ROW_2)
+        ac.setPosition(rival_lap_label, Y_COL_1, X_ROW_3)
+        ac.setPosition(best_lap_label, Y_COL_1, X_ROW_2)
         ac.setPosition(self.best_lap_time, Y_COL_2, X_ROW_2)
         ac.setPosition(self.best_lap_delta, Y_COL_3, X_ROW_2)
+
+    def update_lap_counter(self, lap_count):
+        ac.setText(self.lap_counter, "{} laps".format(lap_count))
 
     def update_delta(self, delta):
         delta_str = round(delta)/1000
@@ -57,5 +65,9 @@ class LeaderboardsUI:
         ac.setText(self.best_lap_time, best_lap_time_str)
 
     def ms_to_time_str(self, ms):
-        time_str = "{}:{}.{}".format(math.floor(ms/60000), "{}".format(math.floor(ms/1000) % 60).zfill(2), "{}".format(ms%1000).zfill(3))
+        # ac.console(ms/6000)
+        mins = math.floor(ms/60000)
+        secs = '{0}'.format(math.floor(ms/1000) % 60).zfill(2)
+        mils = "{0}".format(ms%1000).zfill(3)
+        time_str = '{0}:{1}.{2}'.format(mins, secs, mils)
         return time_str
