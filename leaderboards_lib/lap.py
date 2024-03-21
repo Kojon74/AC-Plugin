@@ -26,11 +26,15 @@ class Lap:
     def upload(self, cur_user_id, is_best_lap):
         self.distance_time.append([1, self.lap_time/1000, 1.0, 0.0])
         timestamp = math.floor(time.time() * 1000)
-        data = urllib.parse.urlencode({"lap_time": self.lap_time, "track": self.track, "invalidated": self.invalidated, "sector_times": self.sector_times, "timestamp": timestamp, "is_best_lap": is_best_lap}).encode("ascii")
-        req = urllib.request.Request(url='http://{}:8000/upload-lap/'.format(IP_ADDRESS), data=data)
-        with urllib.request.urlopen(req) as response:
-            print(response.read())
-        with open("best_laps\{}\{}\{}.csv".format(cur_user_id, self.track, timestamp), 'w', newline='') as f:
+        f_path = "best_laps\{}\{}\{}.csv".format(cur_user_id, self.track, timestamp)
+        with open(f_path, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(FIELDS)
             writer.writerows(self.distance_time)
+        with open(f_path, 'rb') as f:
+            telemetry = f.read()
+        data = urllib.parse.urlencode({"lap_time": self.lap_time, "track": self.track, "invalidated": self.invalidated, "sector_times": self.sector_times, "timestamp": timestamp, "is_best_lap": is_best_lap, "telemetry": telemetry}).encode("ascii")
+        req = urllib.request.Request(url='http://{}:8000/upload-lap/'.format(IP_ADDRESS), data=data)
+        with urllib.request.urlopen(req) as response:
+            print(response.read())
+

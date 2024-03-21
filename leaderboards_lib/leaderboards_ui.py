@@ -1,4 +1,7 @@
 import math
+
+from leaderboards_lib.api import fetch
+
 import ac
 
 X_ROW_0 = 50
@@ -9,10 +12,16 @@ Y_COL_1 = 0
 Y_COL_2 = 200
 Y_COL_3 = 400
 
+def create_new_user(username):
+    fetch("users", "POST", {"username": username})
+    
 class LeaderboardsUI:
-    def __init__(self, app_window, current_user, best_lap_time):
-        ac.setSize(app_window, 900, 300)
-        current_user_label = ac.addLabel(app_window, "{0}".format(current_user))
+    def __init__(self, app_window, cur_user, users, best_lap_time):
+        self.window = app_window
+        ac.setSize(self.window, 900, 300)
+
+        self.current_user(cur_user, users)
+        
         rival_lap_label = ac.addLabel(app_window, "Rival Lap")
         best_lap_label = ac.addLabel(app_window, "Best Lap")
         self.best_lap_time = ac.addLabel(app_window, self.ms_to_time_str(best_lap_time))
@@ -24,7 +33,6 @@ class LeaderboardsUI:
 
         ac.setFontColor(self.best_lap_delta, 1, 0, 0, 1)
 
-        ac.setFontSize(current_user_label, 30)
         ac.setFontSize(rival_lap_label, 30)
         ac.setFontSize(best_lap_label, 30)
         ac.setFontSize(self.best_lap_time, 30)
@@ -34,7 +42,6 @@ class LeaderboardsUI:
         ac.setFontSize(self.invalidated_label, 30)
         ac.setFontSize(self.lap_counter, 30)
 
-        ac.setPosition(current_user_label, Y_COL_1, X_ROW_0)
         ac.setPosition(self.lap_counter, Y_COL_2, X_ROW_0)
         ac.setPosition(cur_lap_label, Y_COL_1, X_ROW_1)
         ac.setPosition(self.cur_lap_time, Y_COL_2, X_ROW_1)
@@ -43,6 +50,14 @@ class LeaderboardsUI:
         ac.setPosition(best_lap_label, Y_COL_1, X_ROW_2)
         ac.setPosition(self.best_lap_time, Y_COL_2, X_ROW_2)
         ac.setPosition(self.best_lap_delta, Y_COL_3, X_ROW_2)
+
+    def current_user(self, cur_user, users):
+        current_user_label = ac.addLabel(self.window, "{}".format(cur_user["username"]))
+        ac.setFontSize(current_user_label, 30)
+        ac.setPosition(current_user_label, Y_COL_1, X_ROW_0)
+
+        new_user_input = ac.addTextInput(self.window, "")
+        ac.addOnValidateListener(new_user_input, create_new_user)
 
     def update_lap_counter(self, lap_count):
         ac.setText(self.lap_counter, "{} laps".format(lap_count))

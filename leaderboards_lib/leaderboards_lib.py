@@ -3,8 +3,6 @@ import urllib.request
 import json
 import os
 import bisect
-import csv
-import sys
 
 import ac
 import acsys
@@ -13,10 +11,10 @@ from sim_info import info
 
 from leaderboards_lib import lap
 from leaderboards_lib import leaderboards_ui
+from leaderboards_lib.api import fetch
 
 # Third party libs
 import numpy as np
-import firebase_admin # 2.1.1
 
 IP_ADDRESS = "10.0.0.153"
 TRACK_NAMES = {"bahrain_2020": "Bahrain International Circuit", "jeddah21": "Jeddah Corniche Circuit", "rt_suzuka": "Suzuka Circuit", "actk_losail_circuit": "Losail International Circuit", "acu_cota_2021": "Circuit of the Americas", "acu_mexico_2021": "Autódromo Hermanos Rodríguez", "melbourne22": "Albert Park Circuit"}
@@ -31,9 +29,10 @@ class Leaderboards:
         self.first_lap = True
         self.last_time = 0 # Used top keep track of new lap
         self.lap_count = 0
-        self.cur_username, self.cur_user_id = self.init_server()
-        self.best_lap_offset, self.best_lap_elapsed, self.best_lap_time = self.get_best_lap()
-        self.ui = leaderboards_ui.LeaderboardsUI(app_window, self.cur_username, self.best_lap_time)
+        self.users = self.get_users()
+        self.cur_user = self.get_most_recent_user()
+        # self.best_lap_offset, self.best_lap_elapsed, self.best_lap_time = self.get_best_lap()
+        self.ui = leaderboards_ui.LeaderboardsUI(app_window, self.cur_user, self.users, 0)
 
     '''
     Serves multiple purposes:
@@ -51,19 +50,32 @@ class Leaderboards:
                 os.makedirs(best_lap_path)
             return cur_username, cur_user_id
 
+    def get_users(self):
+        resp = fetch("users", "GET")
+        return resp['users']
+        
+    def get_most_recent_user(self):
+        most_recent_user = max(self.users, key=lambda x: x["lastOnline"])
+        return most_recent_user
+
     def get_best_lap(self):
-        data = urllib.parse.urlencode({"track": self.track}).encode("ascii")
-        with urllib.request.urlopen('http://{}:8000/best-lap'.format(IP_ADDRESS), data=data) as response:
-            response = json.loads(response.read().decode(response.info().get_param('charset') or 'utf-8'))
-            best_lap_time = response['lapTime']
-            best_lap_id = response['id']
-        best_lap_f = 'best_laps\{}\{}\{}.csv'.format(self.cur_user_id, self.track, best_lap_id)
-        if not os.path.isfile(best_lap_f) or best_lap_time == 0:
-            return None, None, DEFAULT_TIME
-        data = np.loadtxt(best_lap_f, delimiter=',', skiprows=1)
-        offset, elapsed = data[:,0].tolist(), data[:,1].tolist()
-        elapsed = [x * 1000 for x in elapsed]
-        return offset, elapsed, best_lap_time
+        # Check if user has set a time on this track
+        if self.track in self.cur_user["bestLaps"]:
+            resp = fetch("laps/{}".format(self.cur_user["bestLaps"][self.track]), "GET")
+            return None, None, resp["lapTime"] # TODO: Figure out how to read csv from url
+        return None, None, DEFAULT_TIME
+        # data = urllib.parse.urlencode({"track": self.track}).encode("ascii")
+        # with urllib.request.urlopen('http://{}:8000/best-lap'.format(IP_ADDRESS), data=data) as response:
+        #     response = json.loads(response.read().decode(response.info().get_param('charset') or 'utf-8'))
+        #     best_lap_time = response['lapTime']
+        #     best_lap_id = response['id']
+        # best_lap_f = 'best_laps\{}\{}\{}.csv'.format(self.cur_user_id, self.track, best_lap_id)
+        # if not os.path.isfile(best_lap_f) or best_lap_time == 0:
+        #     return None, None, DEFAULT_TIME
+        # data = np.loadtxt(best_lap_f, delimiter=',', skiprows=1)
+        # offset, elapsed = data[:,0].tolist(), data[:,1].tolist()
+        # elapsed = [x * 1000 for x in elapsed]
+        # return offset, elapsed, best_lap_time
 
     def update_delta(self, offset, elapsed):
         offset_i = bisect.bisect_left(self.best_lap_offset, offset)
