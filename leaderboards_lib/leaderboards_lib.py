@@ -11,28 +11,34 @@ from sim_info import info
 
 from leaderboards_lib import lap
 from leaderboards_lib import leaderboards_ui
-from leaderboards_lib.api import fetch
+from leaderboards_lib.api import fetch, read_csv
 
 # Third party libs
 import numpy as np
 
 IP_ADDRESS = "10.0.0.153"
-TRACK_NAMES = {"bahrain_2020": "Bahrain International Circuit", "jeddah21": "Jeddah Corniche Circuit", "rt_suzuka": "Suzuka Circuit", "actk_losail_circuit": "Losail International Circuit", "acu_cota_2021": "Circuit of the Americas", "acu_mexico_2021": "Autódromo Hermanos Rodríguez", "melbourne22": "Albert Park Circuit"}
+TRACK_NAMES = {"bahrain_2020": "Bahrain International Circuit", "jeddah21": "Jeddah Corniche Circuit", "rt_suzuka": "Suzuka Circuit", "actk_losail_circuit": "Losail International Circuit", "acu_cota_2021": "Circuit of the Americas", "acu_mexico_2021": "Autódromo Hermanos Rodríguez", "melbourne22": "albert-park-circuit"}
 # Default time if user hasn't set valid time on the selected track
 DEFAULT_TIME = 999999999
 
 class Leaderboards:
     def __init__(self):
         app_window = ac.newApp("Performance Delta")
-        self.track = TRACK_NAMES[ac.getTrackName(0)]
+        self.track = self.get_track()
         self.lap = lap.Lap(self.track)
         self.first_lap = True
         self.last_time = 0 # Used top keep track of new lap
         self.lap_count = 0
         self.users = self.get_users()
         self.cur_user = self.get_most_recent_user()
-        # self.best_lap_offset, self.best_lap_elapsed, self.best_lap_time = self.get_best_lap()
+        ac.log(str(self.track))
+        ac.log(str(self.cur_user))
+        self.best_lap_offset, self.best_lap_elapsed, self.best_lap_time = self.get_best_lap()
         self.ui = leaderboards_ui.LeaderboardsUI(app_window, self.cur_user, self.users, 0)
+
+    def get_track(self):
+        resp = fetch("tracks/{}".format(ac.getTrackName(0)), "GET")
+        return resp["track"]
 
     '''
     Serves multiple purposes:
@@ -56,13 +62,18 @@ class Leaderboards:
         
     def get_most_recent_user(self):
         most_recent_user = max(self.users, key=lambda x: x["lastOnline"])
+        fetch("users/{}".format(most_recent_user["_id"]), "PUT")
         return most_recent_user
 
     def get_best_lap(self):
         # Check if user has set a time on this track
-        if self.track in self.cur_user["bestLaps"]:
-            resp = fetch("laps/{}".format(self.cur_user["bestLaps"][self.track]), "GET")
-            return None, None, resp["lapTime"] # TODO: Figure out how to read csv from url
+        resp_lap = fetch("laps/{}/{}/best".format(self.track["_id"], self.cur_user["_id"]), "GET")
+        if resp_lap["bestLap"]:
+            resp_tel = fetch("telemetry", "GET", {self.cur_user["_id"], self.track["_id"], resp_lap["bestLap"]["timestamp"]})
+            headers, data = read_csv(resp_tel["telemetryUrl"])
+            offset = data[:,np.where(headers == "distance_offset")[0]]
+            elapsed = data[:,np.where(headers == "time_elapsed")[0]]
+            return offset, elapsed, resp_lap["lapTime"] # TODO: Figure out how to read csv from url
         return None, None, DEFAULT_TIME
         # data = urllib.parse.urlencode({"track": self.track}).encode("ascii")
         # with urllib.request.urlopen('http://{}:8000/best-lap'.format(IP_ADDRESS), data=data) as response:
@@ -103,7 +114,8 @@ class Leaderboards:
                     distance_time = list(zip(*self.lap.distance_time))
                     self.best_lap_offset, self.best_lap_elapsed = list(distance_time[0]), list(distance_time[1])
                     self.ui.update_best_lap_time(self.best_lap_time)
-                self.lap.upload(self.cur_user_id, is_best_lap)
+                if not self.lap.invalidated:
+                    self.lap.upload(self.cur_user_id)
             self.lap_count = ac.getCarState(0, acsys.CS.LapCount)
             self.lap = lap.Lap(self.track)
             self.ui.update_invalidated(False)
@@ -123,8 +135,6 @@ class Leaderboards:
         self.last_time = cur_time
 
     def acShutdown(self):
-        req = urllib.request.Request(url='http://{}:8000/app-shutdown/'.format(IP_ADDRESS))
-        with urllib.request.urlopen(req) as response:
-            response = ac.log("Shutdown: {}".format(response.read()))
+        pass
 
 leaderboards_app = Leaderboards()
