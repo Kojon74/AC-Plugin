@@ -3,6 +3,7 @@ import urllib.request
 import json
 import os
 import bisect
+from datetime import datetime
 
 import ac
 import acsys
@@ -31,8 +32,6 @@ class Leaderboards:
         self.lap_count = 0
         self.users = self.get_users()
         self.cur_user = self.get_most_recent_user()
-        ac.log(str(self.track))
-        ac.log(str(self.cur_user))
         self.best_lap_offset, self.best_lap_elapsed, self.best_lap_time = self.get_best_lap()
         self.ui = leaderboards_ui.LeaderboardsUI(app_window, self.cur_user, self.users, 0)
 
@@ -68,25 +67,17 @@ class Leaderboards:
     def get_best_lap(self):
         # Check if user has set a time on this track
         resp_lap = fetch("laps/{}/{}/best".format(self.track["_id"], self.cur_user["_id"]), "GET")
-        if resp_lap["bestLap"]:
-            resp_tel = fetch("telemetry", "GET", {self.cur_user["_id"], self.track["_id"], resp_lap["bestLap"]["timestamp"]})
-            headers, data = read_csv(resp_tel["telemetryUrl"])
-            offset = data[:,np.where(headers == "distance_offset")[0]]
-            elapsed = data[:,np.where(headers == "time_elapsed")[0]]
-            return offset, elapsed, resp_lap["lapTime"] # TODO: Figure out how to read csv from url
+        best_lap = resp_lap["bestLap"]
+        if best_lap:
+            dt_object = datetime.strptime(resp_lap["bestLap"]["date"], "%Y-%m-%dT%H:%M:%S.%fZ")
+            epoch = datetime(1970,1,1)
+            timestamp = int((dt_object-epoch).total_seconds()*1000)
+            resp_tel = fetch("telemetry/{}/{}/{}".format(self.cur_user["_id"], self.track["_id"], timestamp), "GET")
+            headers, data = read_csv(resp_tel["telemetry"])
+            offset = data[:,np.where(headers == "distance_offset")[0][0]]
+            elapsed = data[:,np.where(headers == "time_elapsed")[0][0]]*1000
+            return offset, elapsed, best_lap["lapTime"]
         return None, None, DEFAULT_TIME
-        # data = urllib.parse.urlencode({"track": self.track}).encode("ascii")
-        # with urllib.request.urlopen('http://{}:8000/best-lap'.format(IP_ADDRESS), data=data) as response:
-        #     response = json.loads(response.read().decode(response.info().get_param('charset') or 'utf-8'))
-        #     best_lap_time = response['lapTime']
-        #     best_lap_id = response['id']
-        # best_lap_f = 'best_laps\{}\{}\{}.csv'.format(self.cur_user_id, self.track, best_lap_id)
-        # if not os.path.isfile(best_lap_f) or best_lap_time == 0:
-        #     return None, None, DEFAULT_TIME
-        # data = np.loadtxt(best_lap_f, delimiter=',', skiprows=1)
-        # offset, elapsed = data[:,0].tolist(), data[:,1].tolist()
-        # elapsed = [x * 1000 for x in elapsed]
-        # return offset, elapsed, best_lap_time
 
     def update_delta(self, offset, elapsed):
         offset_i = bisect.bisect_left(self.best_lap_offset, offset)
@@ -111,11 +102,11 @@ class Leaderboards:
                 is_best_lap = not self.lap.invalidated and self.lap.lap_time < self.best_lap_time
                 if is_best_lap:
                     self.best_lap_time = self.lap.lap_time
-                    distance_time = list(zip(*self.lap.distance_time))
-                    self.best_lap_offset, self.best_lap_elapsed = list(distance_time[0]), list(distance_time[1])
+                    telemetry = list(zip(*self.lap.telemetry))
+                    self.best_lap_offset, self.best_lap_elapsed = list(telemetry[0]), list(telemetry[1])
                     self.ui.update_best_lap_time(self.best_lap_time)
                 if not self.lap.invalidated:
-                    self.lap.upload(self.cur_user_id)
+                    self.lap.upload(self.cur_user["_id"])
             self.lap_count = ac.getCarState(0, acsys.CS.LapCount)
             self.lap = lap.Lap(self.track)
             self.ui.update_invalidated(False)

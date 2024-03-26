@@ -2,11 +2,21 @@ import time
 import math
 import csv
 
+import urllib.parse
+
 from leaderboards_lib.api import fetch
 
 IP_ADDRESS = "10.0.0.153"
 
 FIELDS = ["distance_offset", "time_elapsed", "gas", "brake"]
+
+import os, os.path
+
+def safe_open_w(path):
+    ''' Open "path" for writing, creating any parent directories as needed.
+    '''
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    return open(path, 'w', newline='')
 
 class Lap:
     def __init__(self, track):
@@ -26,20 +36,24 @@ class Lap:
         self.telemetry.append([1, self.lap_time/1000, 1.0, 0.0])
         timestamp = math.floor(time.time() * 1000)
         self.upload_telemetry(cur_user_id, timestamp)
-        data = {"lapTime": self.lap_time, "trackId": self.track, "sectorTimes": self.sector_times, "timestamp": timestamp}
+        data = {"lapTime": self.lap_time, "trackId": self.track["_id"], "sectorTimes": self.sector_times, "timestamp": timestamp, "userId": cur_user_id}
         fetch("laps", "POST", data)
-        # data = urllib.parse.urlencode(telemetry).encode("ascii")
+        # 
         # req = urllib.request.Request(url='http://{}:8000/upload-lap/'.format(IP_ADDRESS), data=data)
         # with urllib.request.urlopen(req) as response:
         #     print(response.read())
 
+
     def upload_telemetry(self, cur_user_id, timestamp):
-        f_path = "best_laps\{}\{}\{}.csv".format(cur_user_id, self.track, timestamp)
-        with open(f_path, 'w', newline='') as f:
+        f_path = "best_laps\{}\{}\{}.csv".format(cur_user_id, self.track["name"], timestamp)
+        with safe_open_w(f_path) as f:
             writer = csv.writer(f)
             writer.writerow(FIELDS)
             writer.writerows(self.telemetry)
         with open(f_path, 'rb') as f:
             telemetry = f.read()
-        data = {"userId": cur_user_id, "trackId": self.track["_id"], "timestamp": timestamp, "telemetry": telemetry}
-        fetch("telemetry", "POST", data)
+        data = urllib.parse.urlencode({"telemetry": telemetry}).encode("ascii")
+        req = urllib.request.Request(url='http://{}:3000/api/telemetry/{}/{}/{}'.format(IP_ADDRESS, cur_user_id, self.track["_id"], timestamp), data=telemetry, method="POST")
+        with urllib.request.urlopen(req) as response:
+            print(response.read())
+        # fetch("telemetry/{}/{}/{}".format(cur_user_id, self.track["_id"], timestamp), "POST", data)
