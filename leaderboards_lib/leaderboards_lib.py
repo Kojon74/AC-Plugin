@@ -18,7 +18,7 @@ from leaderboards_lib.api import fetch, read_csv
 import numpy as np
 
 IP_ADDRESS = "10.0.0.153"
-TRACK_NAMES = {"bahrain_2020": "Bahrain International Circuit", "jeddah21": "Jeddah Corniche Circuit", "rt_suzuka": "Suzuka Circuit", "actk_losail_circuit": "Losail International Circuit", "acu_cota_2021": "Circuit of the Americas", "acu_mexico_2021": "Autódromo Hermanos Rodríguez", "melbourne22": "albert-park-circuit"}
+TRACK_NAMES = {"bahrain_2020": "Bahrain International Circuit", "jeddah21": "Jeddah Corniche Circuit", "rt_suzuka": "suzuka-international-racing-course", "actk_losail_circuit": "Losail International Circuit", "acu_cota_2021": "Circuit of the Americas", "acu_mexico_2021": "Autódromo Hermanos Rodríguez", "melbourne22": "albert-park-circuit"}
 # Default time if user hasn't set valid time on the selected track
 DEFAULT_TIME = 999999999
 
@@ -36,7 +36,7 @@ class Leaderboards:
         self.ui = leaderboards_ui.LeaderboardsUI(app_window, self.cur_user, self.users, 0)
 
     def get_track(self):
-        resp = fetch("tracks/{}".format(ac.getTrackName(0)), "GET")
+        resp = fetch("tracks/{}".format(TRACK_NAMES[ac.getTrackName(0)]), "GET")
         return resp["track"]
 
     '''
@@ -49,7 +49,7 @@ class Leaderboards:
         data = urllib.parse.urlencode({"track": self.track}).encode("ascii")
         with urllib.request.urlopen(url='http://{}:8000/app-boot/'.format(IP_ADDRESS), data=data) as response:
             response = json.loads(response.read().decode(response.info().get_param('charset') or 'utf-8'))
-            cur_username, cur_user_id = response['username'], response['userID']
+            cur_username, cur_user_id = response['name'], response['userID']
             best_lap_path = 'best_laps\{}\{}'.format(cur_user_id, self.track)
             if not os.path.isdir(best_lap_path):
                 os.makedirs(best_lap_path)
@@ -106,7 +106,7 @@ class Leaderboards:
                     self.best_lap_offset, self.best_lap_elapsed = list(telemetry[0]), list(telemetry[1])
                     self.ui.update_best_lap_time(self.best_lap_time)
                 if not self.lap.invalidated:
-                    self.lap.upload(self.cur_user["_id"])
+                    self.lap.upload(self.cur_user)
             self.lap_count = ac.getCarState(0, acsys.CS.LapCount)
             self.lap = lap.Lap(self.track)
             self.ui.update_invalidated(False)

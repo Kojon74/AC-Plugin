@@ -32,17 +32,12 @@ class Lap:
             self.telemetry.append([float(offset), float(elapsed/1000), float(gas), float(brake)])
             self.last_offset = offset
 
-    def upload(self, cur_user_id):
+    def upload(self, cur_user):
         self.telemetry.append([1, self.lap_time/1000, 1.0, 0.0])
         timestamp = math.floor(time.time() * 1000)
-        self.upload_telemetry(cur_user_id, timestamp)
-        data = {"lapTime": self.lap_time, "trackId": self.track["_id"], "sectorTimes": self.sector_times, "timestamp": timestamp, "userId": cur_user_id}
+        self.upload_telemetry(cur_user["_id"], timestamp)
+        data = {"lapTime": self.lap_time, "track": self.track["_id"], "sectorTimes": self.sector_times, "timestamp": timestamp, "user": {"id": cur_user["_id"], "name": cur_user["name"]}}
         fetch("laps", "POST", data)
-        # 
-        # req = urllib.request.Request(url='http://{}:8000/upload-lap/'.format(IP_ADDRESS), data=data)
-        # with urllib.request.urlopen(req) as response:
-        #     print(response.read())
-
 
     def upload_telemetry(self, cur_user_id, timestamp):
         f_path = "best_laps\{}\{}\{}.csv".format(cur_user_id, self.track["name"], timestamp)
@@ -52,8 +47,6 @@ class Lap:
             writer.writerows(self.telemetry)
         with open(f_path, 'rb') as f:
             telemetry = f.read()
-        data = urllib.parse.urlencode({"telemetry": telemetry}).encode("ascii")
         req = urllib.request.Request(url='http://{}:3000/api/telemetry/{}/{}/{}'.format(IP_ADDRESS, cur_user_id, self.track["_id"], timestamp), data=telemetry, method="POST")
         with urllib.request.urlopen(req) as response:
             print(response.read())
-        # fetch("telemetry/{}/{}/{}".format(cur_user_id, self.track["_id"], timestamp), "POST", data)
