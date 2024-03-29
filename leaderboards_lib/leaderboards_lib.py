@@ -86,6 +86,17 @@ class Leaderboards:
 
     def check_invalidated(self):
         return info.physics.numberOfTyresOut > 2
+    
+    def get_cur_telemetry(self):
+        offset = ac.getCarState(0, acsys.CS.NormalizedSplinePosition)
+        elapsed = ac.getCarState(0, acsys.CS.LapTime)
+        speed = ac.getCarState(0, acsys.CS.SpeedKMH)
+        throttle =  ac.getCarState(0, acsys.CS.Gas)
+        brake =  ac.getCarState(0, acsys.CS.Brake)
+        gear =  ac.getCarState(0, acsys.CS.Gear)
+        drs =  ac.getCarState(0, acsys.CS.DrsEnabled)
+        rpm =  ac.getCarState(0, acsys.CS.RPM)
+        return offset, elapsed, speed, throttle, brake, gear, drs, rpm
             
     def acMain(self, ac_version):
         return "Leaderboards"
@@ -96,6 +107,8 @@ class Leaderboards:
         if cur_time < self.last_time:
             if not self.first_lap:
                 last_lap_time = ac.getCarState(0, acsys.CS.LastLap)
+                offset, elapsed, speed, throttle, brake, gear, drs, rpm = self.get_cur_telemetry()
+                self.lap.add(1, last_lap_time, speed, throttle, brake, gear, drs, rpm)
                 last_sector_times = ac.getLastSplits(0)
                 self.lap.lap_time = last_lap_time
                 self.lap.sector_times = last_sector_times
@@ -115,13 +128,10 @@ class Leaderboards:
         if self.check_invalidated():
             self.lap.invalidated = True
             self.ui.update_invalidated(True)
-        offset = ac.getCarState(0, acsys.CS.NormalizedSplinePosition)
-        elapsed = ac.getCarState(0, acsys.CS.LapTime)
-        gas =  ac.getCarState(0, acsys.CS.Gas)
-        brake =  ac.getCarState(0, acsys.CS.Brake)
+        offset, elapsed, speed, throttle, brake, gear, drs, rpm = self.get_cur_telemetry()
         if self.best_lap_time != DEFAULT_TIME:
             self.update_delta(offset, elapsed)
-        self.lap.add(offset, elapsed, gas, brake)
+        self.lap.add(offset, elapsed, speed, throttle, brake, gear, drs, rpm)
         self.ui.update_lap_time(ac.getCarState(0, acsys.CS.LapTime))
         self.last_time = cur_time
 

@@ -8,7 +8,7 @@ from leaderboards_lib.api import fetch
 
 IP_ADDRESS = "10.0.0.153"
 
-FIELDS = ["distance_offset", "time_elapsed", "gas", "brake"]
+FIELDS = ["distance_offset", "time_elapsed", "speed", "throttle", "brake", "gear", "drs", "rpm"]
 
 import os, os.path
 
@@ -27,13 +27,12 @@ class Lap:
         self.telemetry = []
         self.last_offset = 0
 
-    def add(self, offset, elapsed, gas, brake):
+    def add(self, offset, elapsed, speed, throttle, brake, gear, drs, rpm):
         if offset > self.last_offset:
-            self.telemetry.append([float(offset), float(elapsed/1000), float(gas), float(brake)])
+            self.telemetry.append([float(offset), float(elapsed/1000), float(speed), float(throttle), float(brake), int(gear), drs, rpm])
             self.last_offset = offset
 
     def upload(self, cur_user):
-        self.telemetry.append([1, self.lap_time/1000, 1.0, 0.0])
         timestamp = math.floor(time.time() * 1000)
         self.upload_telemetry(cur_user["_id"], timestamp)
         data = {"lapTime": self.lap_time, "track": self.track["_id"], "sectorTimes": self.sector_times, "timestamp": timestamp, "user": {"id": cur_user["_id"], "name": cur_user["name"]}}
