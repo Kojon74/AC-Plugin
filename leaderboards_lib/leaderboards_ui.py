@@ -12,8 +12,8 @@ Y_COL_1 = 0
 Y_COL_2 = 200
 Y_COL_3 = 400
 
-def create_new_user(name):
-    fetch("users", "POST", {"name": name})
+def create_new_user(username):
+    fetch("users", "POST", {"username": username})
     
 class LeaderboardsUI:
     def __init__(self, app_window, cur_user, users, best_lap_time):
@@ -52,7 +52,7 @@ class LeaderboardsUI:
         ac.setPosition(self.best_lap_delta, Y_COL_3, X_ROW_2)
 
     def current_user(self, cur_user, users):
-        current_user_label = ac.addLabel(self.window, "{}".format(cur_user["name"]))
+        current_user_label = ac.addLabel(self.window, "{}".format(cur_user["username"]))
         ac.setFontSize(current_user_label, 30)
         ac.setPosition(current_user_label, Y_COL_1, X_ROW_0)
 

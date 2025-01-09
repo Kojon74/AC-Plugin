@@ -18,42 +18,50 @@ from leaderboards_lib.api import fetch, read_csv
 import numpy as np
 
 IP_ADDRESS = "10.0.0.153"
-TRACK_NAMES = {"bahrain_2020": "Bahrain International Circuit", "jeddah21": "Jeddah Corniche Circuit", "rt_suzuka": "suzuka-international-racing-course", "actk_losail_circuit": "Losail International Circuit", "acu_cota_2021": "Circuit of the Americas", "acu_mexico_2021": "Autódromo Hermanos Rodríguez", "melbourne22": "albert-park-circuit"}
-# Default time if user hasn't set valid time on the selected track
+CIRCUIT_TAGS = {
+    "bahrain_2020": "Bahrain International Circuit", 
+    "jeddah21": "Jeddah Corniche Circuit", 
+    "rt_suzuka": "suzuka-international-racing-course", 
+    "actk_losail_circuit": "Losail International Circuit", 
+    "acu_cota_2021": "Circuit of the Americas", 
+    "acu_mexico_2021": "Autódromo Hermanos Rodríguez", 
+    "melbourne22": "Australian"
+}
+# Default time if user hasn't set valid time on the selected circuit
 DEFAULT_TIME = 999999999
 
 class Leaderboards:
     def __init__(self):
         app_window = ac.newApp("Performance Delta")
-        self.track = self.get_track()
-        self.lap = lap.Lap(self.track)
+        self.circuit = self.get_circuit()
+        self.lap = lap.Lap(self.circuit)
         self.first_lap = True
-        self.last_time = 0 # Used top keep track of new lap
+        self.last_time = 0 # Used top keep circuit of new lap
         self.lap_count = 0
         self.users = self.get_users()
         self.cur_user = self.get_most_recent_user()
         self.best_lap_offset, self.best_lap_elapsed, self.best_lap_time = self.get_best_lap()
         self.ui = leaderboards_ui.LeaderboardsUI(app_window, self.cur_user, self.users, 0)
 
-    def get_track(self):
-        resp = fetch("tracks/{}".format(TRACK_NAMES[ac.getTrackName(0)]), "GET")
-        return resp["track"]
+    def get_circuit(self):
+        resp = fetch("circuits/{}".format(CIRCUIT_TAGS[ac.getTrackName(0)]), "GET")
+        return resp["circuit"]
 
     '''
     Serves multiple purposes:
     1. Check if the server is up and running without errors
     2. Get's the current user from the server
-    3. Updates the database to reflect current track
+    3. Updates the database to reflect current circuit
     '''
-    def init_server(self):
-        data = urllib.parse.urlencode({"track": self.track}).encode("ascii")
-        with urllib.request.urlopen(url='http://{}:8000/app-boot/'.format(IP_ADDRESS), data=data) as response:
-            response = json.loads(response.read().decode(response.info().get_param('charset') or 'utf-8'))
-            cur_username, cur_user_id = response['name'], response['userID']
-            best_lap_path = 'best_laps\{}\{}'.format(cur_user_id, self.track)
-            if not os.path.isdir(best_lap_path):
-                os.makedirs(best_lap_path)
-            return cur_username, cur_user_id
+    # def init_server(self):
+    #     data = urllib.parse.urlencode({"circuit": self.circuit}).encode("ascii")
+    #     with urllib.request.urlopen(url='http://{}:8000/app-boot/'.format(IP_ADDRESS), data=data) as response:
+    #         response = json.loads(response.read().decode(response.info().get_param('charset') or 'utf-8'))
+    #         cur_username, cur_user_id = response['username'], response['userID']
+    #         best_lap_path = 'best_laps\{}\{}'.format(cur_user_id, self.circuit)
+    #         if not os.path.isdir(best_lap_path):
+    #             os.makedirs(best_lap_path)
+    #         return cur_username, cur_user_id
 
     def get_users(self):
         resp = fetch("users", "GET")
@@ -61,18 +69,18 @@ class Leaderboards:
         
     def get_most_recent_user(self):
         most_recent_user = max(self.users, key=lambda x: x["lastOnline"])
-        fetch("users/{}".format(most_recent_user["_id"]), "PUT")
+        fetch("users/{}".format(most_recent_user["username"]), "PUT")
         return most_recent_user
 
     def get_best_lap(self):
-        # Check if user has set a time on this track
-        resp_lap = fetch("laps/{}/{}/best".format(self.track["_id"], self.cur_user["_id"]), "GET")
+        # Check if user has set a time on this circuit
+        resp_lap = fetch("laps/{}/{}/best".format(self.circuit["_id"], self.cur_user["_id"]), "GET")
         best_lap = resp_lap["bestLap"]
         if best_lap:
             dt_object = datetime.strptime(resp_lap["bestLap"]["date"], "%Y-%m-%dT%H:%M:%S.%fZ")
             epoch = datetime(1970,1,1)
             timestamp = int((dt_object-epoch).total_seconds()*1000)
-            resp_tel = fetch("telemetry/{}/{}/{}".format(self.cur_user["_id"], self.track["_id"], timestamp), "GET")
+            resp_tel = fetch("telemetry/{}/{}/{}".format(self.cur_user["_id"], self.circuit["_id"], timestamp), "GET")
             headers, data = read_csv(resp_tel["telemetry"])
             offset = data[:,np.where(headers == "distance_offset")[0][0]]
             elapsed = data[:,np.where(headers == "time_elapsed")[0][0]]*1000
@@ -121,7 +129,7 @@ class Leaderboards:
                 if not self.lap.invalidated:
                     self.lap.upload(self.cur_user)
             self.lap_count = ac.getCarState(0, acsys.CS.LapCount)
-            self.lap = lap.Lap(self.track)
+            self.lap = lap.Lap(self.circuit)
             self.ui.update_invalidated(False)
             self.ui.update_lap_counter(self.lap_count)
             self.first_lap = False
