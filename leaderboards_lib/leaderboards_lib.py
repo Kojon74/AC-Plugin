@@ -1,7 +1,4 @@
 # AC runs on Python 3.3.5
-import urllib.request
-import json
-import os
 import bisect
 from datetime import datetime
 
@@ -39,29 +36,16 @@ class Leaderboards:
         self.last_time = 0 # Used top keep circuit of new lap
         self.lap_count = 0
         self.users = self.get_users()
-        self.cur_user = self.get_most_recent_user()
+        self.get_most_recent_user()
         self.best_lap_offset, self.best_lap_elapsed, self.best_lap_time = self.get_best_lap()
-        self.ui = leaderboards_ui.LeaderboardsUI(app_window, self.cur_user, self.users, 0)
+        self.ui = leaderboards_ui.LeaderboardsUI(app_window, self.cur_user, self.users, 0, self.set_cur_user)
+
+    def set_cur_user(self, user):
+        self.cur_user = user
 
     def get_circuit(self):
         resp = fetch("circuits/{}".format(CIRCUIT_TAGS[ac.getTrackName(0)]), "GET")
         return resp["circuit"]
-
-    '''
-    Serves multiple purposes:
-    1. Check if the server is up and running without errors
-    2. Get's the current user from the server
-    3. Updates the database to reflect current circuit
-    '''
-    # def init_server(self):
-    #     data = urllib.parse.urlencode({"circuit": self.circuit}).encode("ascii")
-    #     with urllib.request.urlopen(url='http://{}:8000/app-boot/'.format(IP_ADDRESS), data=data) as response:
-    #         response = json.loads(response.read().decode(response.info().get_param('charset') or 'utf-8'))
-    #         cur_username, cur_user_id = response['username'], response['userID']
-    #         best_lap_path = 'best_laps\{}\{}'.format(cur_user_id, self.circuit)
-    #         if not os.path.isdir(best_lap_path):
-    #             os.makedirs(best_lap_path)
-    #         return cur_username, cur_user_id
 
     def get_users(self):
         resp = fetch("users", "GET")
@@ -70,7 +54,7 @@ class Leaderboards:
     def get_most_recent_user(self):
         most_recent_user = max(self.users, key=lambda x: x["lastOnline"])
         fetch("users/{}".format(most_recent_user["username"]), "PUT")
-        return most_recent_user
+        self.set_cur_user(most_recent_user)
 
     def get_best_lap(self):
         # Check if user has set a time on this circuit

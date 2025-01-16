@@ -1,4 +1,4 @@
-import math
+import math, functools
 
 from leaderboards_lib.api import fetch
 
@@ -14,13 +14,18 @@ Y_COL_3 = 400
 
 def create_new_user(username):
     fetch("users", "POST", {"username": username})
-    
+
 class LeaderboardsUI:
-    def __init__(self, app_window, cur_user, users, best_lap_time):
+    def __init__(self, app_window, cur_user, users, best_lap_time, set_cur_user):
         self.window = app_window
         ac.setSize(self.window, 900, 300)
 
-        self.current_user(cur_user, users)
+        self._set_cur_user = set_cur_user
+        self.cur_user = cur_user
+        self.users = users
+
+        self.create_users_list()
+        self.current_user()
         
         rival_lap_label = ac.addLabel(app_window, "Rival Lap")
         best_lap_label = ac.addLabel(app_window, "Best Lap")
@@ -51,13 +56,42 @@ class LeaderboardsUI:
         ac.setPosition(self.best_lap_time, Y_COL_2, X_ROW_2)
         ac.setPosition(self.best_lap_delta, Y_COL_3, X_ROW_2)
 
-    def current_user(self, cur_user, users):
-        current_user_label = ac.addLabel(self.window, "{}".format(cur_user["username"]))
-        ac.setFontSize(current_user_label, 30)
-        ac.setPosition(current_user_label, Y_COL_1, X_ROW_0)
+    def set_cur_user(self, user):
+        ac.setText(self.cur_user_btn, user["username"])
+        self.cur_user = user
+        self._set_cur_user(user)
 
-        new_user_input = ac.addTextInput(self.window, "")
-        ac.addOnValidateListener(new_user_input, create_new_user)
+    # addListBox doesn't work
+    def create_users_list(self):
+        self.user_btn_list = [0]*len(self.users)
+        self.callback_funcs = [0]*len(self.users)
+        for i, user in enumerate(self.users):
+            self.user_btn_list[i] = ac.addButton(self.window, user["username"])
+            ac.setSize(self.user_btn_list[i], 150, 25)
+            ac.setPosition(self.user_btn_list[i], 750, 25*i + 60)
+            self.callback_funcs[i] = functools.partial(self.on_users_list_click, index=i)
+            ac.addOnClickedListener(self.user_btn_list[i], self.callback_funcs[i])
+        self.view_users_list = True
+        self.toggle_view_users_list()
+
+    def on_users_list_click(self, *args, index):
+        self.set_cur_user(self.users[index])
+        self.toggle_view_users_list()
+
+    def toggle_view_users_list(self):
+        for i in range(len(self.user_btn_list)):
+            ac.setVisible(self.user_btn_list[i], not self.view_users_list)
+        self.view_users_list = not self.view_users_list
+
+    def current_user(self):
+        self.cur_user_btn = ac.addButton(self.window, "{}".format(self.cur_user["username"]))
+        ac.setPosition(self.cur_user_btn, 750, 25)
+        ac.setSize(self.cur_user_btn, 150, 25)
+        self.on_cur_user_click_func = functools.partial(self.on_cur_user_click)
+        ac.addOnClickedListener(self.cur_user_btn, self.on_cur_user_click_func)
+
+    def on_cur_user_click(self, *args):
+        self.toggle_view_users_list()
 
     def update_lap_counter(self, lap_count):
         ac.setText(self.lap_counter, "{} laps".format(lap_count))
@@ -80,7 +114,6 @@ class LeaderboardsUI:
         ac.setText(self.best_lap_time, best_lap_time_str)
 
     def ms_to_time_str(self, ms):
-        # ac.console(ms/6000)
         mins = math.floor(ms/60000)
         secs = '{0}'.format(math.floor(ms/1000) % 60).zfill(2)
         mils = "{0}".format(ms%1000).zfill(3)
