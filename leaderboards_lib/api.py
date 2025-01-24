@@ -3,18 +3,31 @@ import urllib.request
 import csv
 from io import StringIO
 
-import numpy as np
-
 import ac
 
-IP_ADDRESS = "10.0.0.153"
+import numpy as np
+
+DOMAIN = "http://delta-flax.vercel.app" # http instead of https because of missing ssl module
 
 def fetch(endpoint, method, data=None):
     data = json.dumps(data).encode('utf-8')
-    req =  urllib.request.Request('http://{}:3000/api/{}'.format(IP_ADDRESS, endpoint), data=data, headers={"Content-Type": "application/json"}, method=method)
-    with urllib.request.urlopen(req) as resp:
-        resp = json.loads(resp.read().decode(resp.info().get_param('charset') or 'utf-8'))
-    return resp
+    ac.log('{}/api/{}'.format(DOMAIN, endpoint))
+    ac.log(str(data))
+    try:
+        req =  urllib.request.Request('{}/api/{}'.format(DOMAIN, endpoint), data=data, headers={"Content-Type": "application/json"}, method=method)
+        with urllib.request.urlopen(req) as resp:
+            resp = json.loads(resp.read().decode(resp.info().get_param('charset') or 'utf-8'))
+        return resp
+    except urllib.error.HTTPError as e:
+        ac.log("HERE HTTPError")
+        if e.code == 308:
+            new_url = e.headers["Location"]  # Extract the redirect URL
+            ac.log("Redirecting to: {}".format(new_url))
+            resp = urllib.request.urlopen(new_url)
+            resp = json.loads(resp.read().decode(resp.info().get_param('charset') or 'utf-8'))
+            return resp
+        else:
+            ac.log("HTTP Error: {}".format(e))
 
 def read_csv(data):
     csv_data = list(csv.reader(StringIO(data)))

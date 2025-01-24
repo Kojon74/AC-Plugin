@@ -14,15 +14,14 @@ from leaderboards_lib.api import fetch, read_csv
 # Third party libs
 import numpy as np
 
-IP_ADDRESS = "10.0.0.153"
 CIRCUIT_TAGS = {
-    "bahrain_2020": "Bahrain International Circuit", 
-    "jeddah21": "Jeddah Corniche Circuit", 
-    "rt_suzuka": "suzuka-international-racing-course", 
-    "actk_losail_circuit": "Losail International Circuit", 
-    "acu_cota_2021": "Circuit of the Americas", 
-    "acu_mexico_2021": "Autódromo Hermanos Rodríguez", 
-    "melbourne22": "Australian"
+    "melbourne22": "australian-gp",
+    "rt_suzuka": "japanese-gp", 
+    "bahrain_2020": "bahrain-gp", 
+    "jeddah21": "saudi-arabian-gp", 
+    "acu_cota_2021": "united-states-gp", 
+    "acu_mexico_2021": "mexico-city-gp", 
+    "actk_losail_circuit": "qatar-gp", 
 }
 # Default time if user hasn't set valid time on the selected circuit
 DEFAULT_TIME = 999999999
@@ -97,6 +96,11 @@ class Leaderboards:
         cur_time = ac.getCarState(0, acsys.CS.LapTime)
         # Check if new lap
         if cur_time < self.last_time:
+            ac.log(str(ac.getCarState(0, acsys.CS.LapCount)))
+            ac.log(str(ac.getCarState(0, acsys.CS.LapInvalidated)))
+            ac.log(str(ac.getCarState(0, acsys.CS.LapTime)))
+            ac.log(str(ac.getCarState(0, acsys.CS.LastLap)))
+            ac.log(str(ac.getCarState(0, acsys.CS.PerformanceMeter)))
             if not self.first_lap:
                 last_lap_time = ac.getCarState(0, acsys.CS.LastLap)
                 offset, elapsed, speed, throttle, brake, gear, drs, rpm = self.get_cur_telemetry()

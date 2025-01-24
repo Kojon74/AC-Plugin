@@ -6,7 +6,7 @@ import urllib.parse
 
 from leaderboards_lib.api import fetch
 
-IP_ADDRESS = "10.0.0.153"
+DOMAIN = "http://delta-flax.vercel.app"
 
 FIELDS = ["distance_offset", "time_elapsed", "speed", "throttle", "brake", "gear", "drs", "rpm"]
 
@@ -35,9 +35,10 @@ class Lap:
     def upload(self, cur_user):
         timestamp = math.floor(time.time() * 1000)
         self.upload_telemetry(cur_user["_id"], timestamp)
-        data = {"lapTime": self.lap_time, "circuit": self.circuit["_id"], "sectorTimes": self.sector_times, "timestamp": timestamp, "user": {"id": cur_user["_id"], "username": cur_user["username"]}}
+        data = {"lapTime": self.lap_time, "circuit": self.circuit["_id"], "sectorTimes": self.sector_times, "timestamp": timestamp, "user": {"_id": cur_user["_id"], "username": cur_user["username"]}}
         fetch("laps", "POST", data)
 
+    # TODO: Make a call to fetch instead
     def upload_telemetry(self, cur_user_id, timestamp):
         f_path = "best_laps\{}\{}\{}.csv".format(cur_user_id, self.circuit["circuitName"], timestamp)
         with safe_open_w(f_path) as f:
@@ -46,6 +47,6 @@ class Lap:
             writer.writerows(self.telemetry)
         with open(f_path, 'rb') as f:
             telemetry = f.read()
-        req = urllib.request.Request(url='http://{}:3000/api/telemetry/{}/{}/{}'.format(IP_ADDRESS, cur_user_id, self.circuit["_id"], timestamp), data=telemetry, method="POST")
+        req = urllib.request.Request(url='{}/api/telemetry/{}/{}/{}'.format(DOMAIN, cur_user_id, self.circuit["_id"], timestamp), data=telemetry, method="POST")
         with urllib.request.urlopen(req) as response:
             print(response.read())
