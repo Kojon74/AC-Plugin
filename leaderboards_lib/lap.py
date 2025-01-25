@@ -6,7 +6,7 @@ import urllib.parse
 
 from leaderboards_lib.api import fetch
 
-DOMAIN = "http://delta-flax.vercel.app"
+DOMAIN = "https://delta-flax.vercel.app"
 
 FIELDS = ["distance_offset", "time_elapsed", "speed", "throttle", "brake", "gear", "drs", "rpm"]
 

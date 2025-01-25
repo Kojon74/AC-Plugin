@@ -31,8 +31,7 @@ class Leaderboards:
         app_window = ac.newApp("Performance Delta")
         self.circuit = self.get_circuit()
         self.lap = lap.Lap(self.circuit)
-        self.first_lap = True
-        self.last_time = 0 # Used top keep circuit of new lap
+        self.last_time = 0 # Used to keep track of new lap
         self.lap_count = 0
         self.users = self.get_users()
         self.get_most_recent_user()
@@ -57,7 +56,7 @@ class Leaderboards:
 
     def get_best_lap(self):
         # Check if user has set a time on this circuit
-        resp_lap = fetch("laps/{}/{}/best".format(self.circuit["_id"], self.cur_user["_id"]), "GET")
+        resp_lap = fetch("laps/{}/{}/best".format(self.circuit["tag"], self.cur_user["_id"]), "GET")
         best_lap = resp_lap["bestLap"]
         if best_lap:
             dt_object = datetime.strptime(resp_lap["bestLap"]["date"], "%Y-%m-%dT%H:%M:%S.%fZ")
@@ -96,12 +95,9 @@ class Leaderboards:
         cur_time = ac.getCarState(0, acsys.CS.LapTime)
         # Check if new lap
         if cur_time < self.last_time:
-            ac.log(str(ac.getCarState(0, acsys.CS.LapCount)))
-            ac.log(str(ac.getCarState(0, acsys.CS.LapInvalidated)))
-            ac.log(str(ac.getCarState(0, acsys.CS.LapTime)))
-            ac.log(str(ac.getCarState(0, acsys.CS.LastLap)))
-            ac.log(str(ac.getCarState(0, acsys.CS.PerformanceMeter)))
-            if not self.first_lap:
+            new_lap_count = ac.getCarState(0, acsys.CS.LapCount)
+            # Check if end of lap, new lap doesn't necessarily mean end of lap eg. first lap, restart session
+            if new_lap_count > self.lap_count:
                 last_lap_time = ac.getCarState(0, acsys.CS.LastLap)
                 offset, elapsed, speed, throttle, brake, gear, drs, rpm = self.get_cur_telemetry()
                 self.lap.add(1, last_lap_time, speed, throttle, brake, gear, drs, rpm)
@@ -120,7 +116,6 @@ class Leaderboards:
             self.lap = lap.Lap(self.circuit)
             self.ui.update_invalidated(False)
             self.ui.update_lap_counter(self.lap_count)
-            self.first_lap = False
         if self.check_invalidated():
             self.lap.invalidated = True
             self.ui.update_invalidated(True)
